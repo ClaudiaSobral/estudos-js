@@ -44,3 +44,72 @@ Primeiro, ela captura todos os eventos com a id "s-0001". Depois, ela filtra o p
 Na penúltima linha, a constante é a diferença de fim e início, transformando o texto encontrado em data. No final da linha, ele divide tudo por 60000 para ter o resultado em minutos em vez de milissegundos.
 
 Esse resultado ainda não funciona para sessões que tenham uma pausa. Esse será o próximo desafio.
+
+# Exercício 2
+
+O arquivo ```teste-duracao-sessao-unica.json``` serviu para eu aprender como extrair duração de múltiplas sessões de um mesmo evento do crônometro (com pausas).
+
+O código inicial funcionava, mas não cobria os casos em que o json não tivesse uma sessão finalizada (que é um pressuposto da sessão válida) e não supria casos em que o JSON chegasse desordenado. Além disso, as nomenclaturas de eventos poderiam ser melhoradas.
+
+Esse é código inicial:
+
+```javascript
+import data from './arquivo-teste/rotina_exemplo.json' with { type: 'json'};
+
+function duracaoDaSessao(evento, sessaoId){
+    const eventos = evento.eventos;
+
+    const sessao = eventos.filter(evento => evento.sessao_id === sessaoId);
+    
+    let duracaoTotal = 0;
+    let inicio = null;
+    
+    for (const s of sessao) {
+        const momento = new Date(s.timestamp_utc);
+    
+        if (s.tipo === 'sessao_iniciada' || s.tipo === 'sessao_retomada') {
+            inicio = momento;
+        } else if (s.tipo === 'sessao_pausada' || s.tipo === 'sessao_finalizada') {
+            duracaoTotal += momento - inicio;
+        }
+    }
+    
+    let total = duracaoTotal / 60000;
+    return total
+}
+
+console.log(duracaoDaSessao(data, 's-0002'))
+```
+
+A correção foi essa:
+
+
+```javascript
+import data from './arquivo-teste/rotina_exemplo.json' with { type: 'json'};
+
+function minutosAtivos(dados, sessaoId){
+    const eventosDaSessao = dados.eventos
+    .filter(evento => evento.sessao_id === sessaoId)
+    .sort((a,b) => new Date(a.timestamp_utc) - new Date(b.timestamp_utc));     // Ordena os eventos através da subtração do valor da subtração
+    
+    const finalizada = eventosDaSessao.some(evento => evento.tipo === 'sessao_finalizada');  // Filtra se existe ao menos uma sessão finalizada. Retorna nulo se não houver
+    if (!finalizada) {
+        return null;
+    }
+
+    let totalMin = 0;
+    let inicioDoTrecho = null;
+    
+    for (const evento of eventosDaSessao) {
+        const momento = new Date(evento.timestamp_utc);
+    
+        if (evento.tipo === 'sessao_iniciada' || evento.tipo === 'sessao_retomada') {
+            inicioDoTrecho = momento;
+        } else if (evento.tipo === 'sessao_pausada' || evento.tipo === 'sessao_finalizada') {
+            totalMin += momento - inicioDoTrecho;
+        }
+    }
+    
+    return totalMin / 60000;
+}
+```
